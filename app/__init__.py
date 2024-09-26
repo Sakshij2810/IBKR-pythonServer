@@ -30,6 +30,11 @@ def create_app():
     def log_request_info():
         app.logger.info(f"Request received from {request.remote_addr} at {request.url}")
 
+    # Add a home route with a welcome message
+    @app.route('/', methods=['GET'])
+    def home():
+        return "Welcome to the IBKR Trading Application!"
+
     # Add a test route
     @app.route('/test', methods=['GET'])
     def test():
