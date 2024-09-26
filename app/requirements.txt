@@ -2,3 +2,4 @@ flask
 flask-cors
 ib_insync
 Flask[async]
+gunicorn
