@@ -10,7 +10,7 @@ from app.config import Config  # Import the Config class
 from app.routes import order_blueprint  # Import the order blueprint
 from app.utils.logging import setup_logging  # Import the custom logging setup
 
-app = create_app()  # Create the app instance here
+
 
 def create_app():
     app = Flask(__name__)
@@ -40,3 +40,5 @@ def create_app():
     app.register_blueprint(order_blueprint)
 
     return app
+
+app = create_app()  # Create the app instance here
