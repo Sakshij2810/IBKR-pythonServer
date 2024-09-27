@@ -1,7 +1,10 @@
 #  server/app/services/startegies.py
 
-import sys
-from app.utils.logging import LogColors  # Import LogColors for color coding
+# import sys
+# from app.utils.logging import LogColors  # Import LogColors for color coding
+
+
+
 
 # import logging
 # from ib_insync import Stock, MarketOrder, LimitOrder
@@ -9,16 +12,12 @@ from app.utils.logging import LogColors  # Import LogColors for color coding
 # from flask import current_app as app  # Import current_app for app context
 # import asyncio
 
-
-
 # # Helper function to qualify contracts
 # async def qualify_contract(contract, ib):
 #     await ib.qualifyContractsAsync(contract)
 
-
-
-# # Buy to Sell Strategy
-# async def buy_to_sell_strategy(stock_symbol, exchange, currency, quantity, ib, buy_price=None, sell_percentage=0.15):
+# Buy to Sell Strategy
+# async def buy_to_sell_strategy(stock_symbol, exchange, currency, quantity, ib, buy_price=None, sell_percentage=0.0005):
 #     contract = Stock(stock_symbol, exchange, currency)
 
 #     with app.app_context():
@@ -45,11 +44,11 @@ from app.utils.logging import LogColors  # Import LogColors for color coding
 #             return
 
 #         while not buy_trade.isDone():
-#             ib.sleep(1)
+#             await asyncio.sleep(1)
 
 #         if buy_trade.orderStatus.status == 'Filled':
 #             executed_price = buy_trade.orderStatus.avgFillPrice
-#             logging.info(f"Buy order filled for {quantity} shares of {stock_symbol} at {executed_price}")
+#             logging.info(f"{LogColors.YELLOW}Buy order filled for {quantity} shares of {stock_symbol} at {executed_price}{LogColors.RESET}")
 
 #             # Calculate the sell price based on the executed buy price
 #             sell_price = executed_price * (1 + sell_percentage)
@@ -60,16 +59,16 @@ from app.utils.logging import LogColors  # Import LogColors for color coding
 #             try:
 #                 sell_order = LimitOrder('SELL', quantity, sell_price)
 #                 sell_trade = ib.placeOrder(contract, sell_order)
-#                 logging.info(f"Sell order placed for {stock_symbol} at {sell_price}. Waiting for it to be filled...")
+#                 logging.info(f"{LogColors.YELLOW}Sell order placed for {stock_symbol} at {sell_price}. Waiting for it to be filled...{LogColors.RESET}")
 #             except Exception as e:
 #                 logging.error(f"{stock_symbol}: Failed to place sell order: {e}")
 #                 return
 
 #             while not sell_trade.isDone():
-#                 ib.sleep(1)
+#                 await asyncio.sleep(1)
 
 #             if sell_trade.orderStatus.status == 'Filled':
-#                 logging.info(f"Sell order filled for {quantity} shares of {stock_symbol} at {sell_price}")
+#                 logging.info(f"{LogColors.YELLOW}Sell order filled for {quantity} shares of {stock_symbol} at {sell_price}{LogColors.RESET}")
 #                 update_ownership(stock_symbol, 'SELL', quantity, sell_price)
 #             else:
 #                 logging.error(f"{stock_symbol}: Sell order was not filled.")
@@ -77,6 +76,8 @@ from app.utils.logging import LogColors  # Import LogColors for color coding
 #             logging.error(f"{stock_symbol}: Buy order was not filled.")
 
 
+import sys
+from app.utils.logging import LogColors  # Import LogColors for color coding
 
 import logging
 from ib_insync import Stock, MarketOrder, LimitOrder
@@ -89,13 +90,13 @@ async def qualify_contract(contract, ib):
     await ib.qualifyContractsAsync(contract)
 
 # Buy to Sell Strategy
-async def buy_to_sell_strategy(stock_symbol, exchange, currency, quantity, ib, buy_price=None, sell_percentage=0.15):
+async def buy_to_sell_strategy(stock_symbol, exchange, currency, quantity, ib, buy_price=None, sell_percentage=0.0005):
     contract = Stock(stock_symbol, exchange, currency)
 
     with app.app_context():
         try:
             logging.info(f"Qualifying contract for {stock_symbol} on {exchange} with currency {currency}")
-            await qualify_contract(contract, ib)  # Use await to qualify contracts
+            await qualify_contract(contract, ib)
             logging.info(f"Contract for {stock_symbol} qualified successfully")
         except Exception as e:
             logging.error(f"{stock_symbol}: Failed to qualify contract: {e}")
@@ -110,42 +111,54 @@ async def buy_to_sell_strategy(stock_symbol, exchange, currency, quantity, ib, b
                 logging.info(f"Placing limit buy order for {quantity} shares of {stock_symbol} at {buy_price}")
 
             buy_trade = ib.placeOrder(contract, buy_order)
-            logging.info(f"Buy order for {stock_symbol} placed. Waiting for it to be filled...")
+            logging.info(f"Buy order for {stock_symbol} placed. Waiting for the buy order to be filled...")
+
+            # Wait for the buy order to be filled
+            while not buy_trade.isDone():
+                await asyncio.sleep(1)
+
+            if buy_trade.orderStatus.status == 'Filled':
+                executed_price = buy_trade.orderStatus.avgFillPrice
+                logging.info(f"{LogColors.YELLOW}Buy order filled for {quantity} shares of {stock_symbol} at {executed_price}{LogColors.RESET}")
+                update_ownership(stock_symbol, 'BUY', quantity, executed_price)
+            else:
+                logging.error(f"{stock_symbol}: Buy order was not filled. Exiting strategy.")
+                return
         except Exception as e:
             logging.error(f"{stock_symbol}: Failed to place buy order: {e}")
             return
 
-        while not buy_trade.isDone():
+        # Calculate the sell price based on the filled buy price
+        sell_price = executed_price * (1 + sell_percentage)
+        logging.info(f"Sell price calculated: {sell_price}")
+
+        # Start a 1-minute countdown before placing the sell order
+        logging.info(f"Waiting 1 minute before placing sell order for {stock_symbol}...")
+        for i in range(6):
+            logging.info(f"{60 - i * 10} seconds remaining...")
+            await asyncio.sleep(10)
+
+        logging.info("1 minute wait completed, placing sell order now.")
+
+        try:
+            # Place sell order after waiting 1 minute
+            sell_order = LimitOrder('SELL', quantity, sell_price)
+            sell_trade = ib.placeOrder(contract, sell_order)
+            logging.info(f"Sell order placed for {stock_symbol} at {sell_price}.")
+        except Exception as e:
+            logging.error(f"{stock_symbol}: Failed to place sell order: {e}")
+            return
+
+        while not sell_trade.isDone():
             await asyncio.sleep(1)
 
-        if buy_trade.orderStatus.status == 'Filled':
-            executed_price = buy_trade.orderStatus.avgFillPrice
-            logging.info(f"Buy order filled for {quantity} shares of {stock_symbol} at {executed_price}")
-
-            # Calculate the sell price based on the executed buy price
-            sell_price = executed_price * (1 + sell_percentage)
-            logging.info(f"Placing sell order for {stock_symbol} at {sell_price} (15% higher than buy price)")
-
-            update_ownership(stock_symbol, 'BUY', quantity, executed_price)
-
-            try:
-                sell_order = LimitOrder('SELL', quantity, sell_price)
-                sell_trade = ib.placeOrder(contract, sell_order)
-                logging.info(f"Sell order placed for {stock_symbol} at {sell_price}. Waiting for it to be filled...")
-            except Exception as e:
-                logging.error(f"{stock_symbol}: Failed to place sell order: {e}")
-                return
-
-            while not sell_trade.isDone():
-                await asyncio.sleep(1)
-
-            if sell_trade.orderStatus.status == 'Filled':
-                logging.info(f"Sell order filled for {quantity} shares of {stock_symbol} at {sell_price}")
-                update_ownership(stock_symbol, 'SELL', quantity, sell_price)
-            else:
-                logging.error(f"{stock_symbol}: Sell order was not filled.")
+        if sell_trade.orderStatus.status == 'Filled':
+            logging.info(f"{LogColors.YELLOW}Sell order filled for {quantity} shares of {stock_symbol} at {sell_price}{LogColors.RESET}")
+            update_ownership(stock_symbol, 'SELL', quantity, sell_price)
         else:
-            logging.error(f"{stock_symbol}: Buy order was not filled.")
+            logging.error(f"{stock_symbol}: Sell order was not filled.")
+
+
 
 # Sell to Buy Strategy
 async def sell_to_buy_strategy(stock_symbol, exchange, currency, quantity, ib, sell_price=None, buy_percentage=0.15):

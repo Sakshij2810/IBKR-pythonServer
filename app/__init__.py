@@ -46,4 +46,4 @@ def create_app():
 
     return app
 
-app = create_app()  # Create the app instance here
+# app = create_app()  # Create the app instance here
