@@ -27,7 +27,7 @@ async def order_stock():
 
     try:
         # Connect to the IB API
-        await ib.connectAsync('127.0.0.1', 7496, clientId=5)  
+        await ib.connectAsync('127.0.0.1', 7496, clientId=5, timeout=10)  
         
         response = await place_order(data, ib)
         
