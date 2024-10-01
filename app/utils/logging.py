@@ -1,9 +1,4 @@
-# # server/app/utils/logging.py
 
-# import logging
-
-# def setup_logging():
-#     logging.basicConfig(level=logging.DEBUG)  # Adjust the logging level here
 
 # # server/app/utils/logging.py
 import logging
